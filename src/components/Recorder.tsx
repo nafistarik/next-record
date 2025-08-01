@@ -1,10 +1,9 @@
-'use client';
+"use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from "react";
 
 export default function VideoRecorder() {
   const [recording, setRecording] = useState(false);
-  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
@@ -14,8 +13,11 @@ export default function VideoRecorder() {
 
   // Function to start recording
   const startRecording = async () => {
-    setUploadSuccess(false); // reset upload message
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    setUploadSuccess(false);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
     streamRef.current = stream;
 
     if (videoRef.current) {
@@ -30,8 +32,7 @@ export default function VideoRecorder() {
     };
 
     mediaRecorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      setVideoBlob(blob);
+      const blob = new Blob(chunks, { type: "video/webm" });
 
       // Stop camera/mic
       stream.getTracks().forEach((track) => track.stop());
@@ -58,20 +59,20 @@ export default function VideoRecorder() {
     try {
       setUploading(true);
       const formData = new FormData();
-      formData.append('video', blob, 'recording.mp4');
+      formData.append("video", blob, "recording.mp4");
 
-      const response = await fetch('http://localhost:8000/video/', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8000/video/", {
+        method: "POST",
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) throw new Error("Upload failed");
 
       const result = await response.json();
-      console.log('Upload successful:', result);
+      console.log("Upload successful:", result);
       setUploadSuccess(true);
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error("Upload error:", error);
     } finally {
       setUploading(false);
     }
@@ -107,17 +108,6 @@ export default function VideoRecorder() {
 
       {uploading && <p className="text-blue-500">Uploading...</p>}
       {uploadSuccess && <p className="text-green-600">Upload successful! 🎉</p>}
-
-      {videoBlob && (
-        <div>
-          <h3 className="font-semibold">Preview:</h3>
-          <video
-            controls
-            src={URL.createObjectURL(videoBlob)}
-            className="w-full mt-2 border rounded"
-          />
-        </div>
-      )}
     </div>
   );
 }
