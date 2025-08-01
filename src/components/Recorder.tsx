@@ -5,7 +5,6 @@ import React, { useRef, useState } from "react";
 export default function VideoRecorder() {
   const [recording, setRecording] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -13,7 +12,6 @@ export default function VideoRecorder() {
 
   // Function to start recording
   const startRecording = async () => {
-    setUploadSuccess(false);
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
@@ -70,7 +68,6 @@ export default function VideoRecorder() {
 
       const result = await response.json();
       console.log("Upload successful:", result);
-      setUploadSuccess(true);
     } catch (error) {
       console.error("Upload error:", error);
     } finally {
@@ -107,7 +104,6 @@ export default function VideoRecorder() {
       </div>
 
       {uploading && <p className="text-blue-500">Uploading...</p>}
-      {uploadSuccess && <p className="text-green-600">Upload successful! 🎉</p>}
     </div>
   );
 }
