@@ -4,13 +4,11 @@ import React, { useRef, useState } from "react";
 
 export default function VideoRecorder() {
   const [recording, setRecording] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Function to start recording
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
@@ -31,11 +29,7 @@ export default function VideoRecorder() {
 
     mediaRecorder.onstop = async () => {
       const blob = new Blob(chunks, { type: "video/webm" });
-
-      // Stop camera/mic
       stream.getTracks().forEach((track) => track.stop());
-
-      // Upload the video to your backend
       await uploadVideo(blob);
     };
 
@@ -44,7 +38,6 @@ export default function VideoRecorder() {
     setRecording(true);
   };
 
-  // Function to stop recording
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -52,26 +45,19 @@ export default function VideoRecorder() {
     }
   };
 
-  // Upload function (use your actual backend URL)
   const uploadVideo = async (blob: Blob) => {
     try {
-      setUploading(true);
       const formData = new FormData();
       formData.append("video", blob, "recording.mp4");
-
       const response = await fetch("http://localhost:8000/video/", {
         method: "POST",
         body: formData,
       });
-
       if (!response.ok) throw new Error("Upload failed");
-
       const result = await response.json();
       console.log("Upload successful:", result);
     } catch (error) {
       console.error("Upload error:", error);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -102,8 +88,6 @@ export default function VideoRecorder() {
           </button>
         )}
       </div>
-
-      {uploading && <p className="text-blue-500">Uploading...</p>}
     </div>
   );
 }
