@@ -40,6 +40,7 @@ export default function VideoInterview() {
   // Video recording state
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -49,6 +50,7 @@ export default function VideoInterview() {
 
   // Start the interview
   const startInterview = async () => {
+    console.log("[Interview] Starting interview...");
     setInterviewStarted(true);
     await startRecording();
   };
@@ -56,6 +58,7 @@ export default function VideoInterview() {
   // Start recording for current question
   const startRecording = async () => {
     try {
+      console.log(`[Recording] Starting recording for question ${currentQuestionIndex + 1}`);
       setRecordingTime(0);
       chunksRef.current = [];
 
@@ -73,17 +76,19 @@ export default function VideoInterview() {
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
+        console.log(`[Recording] Data available for question ${currentQuestionIndex + 1}`);
         chunksRef.current.push(e.data);
       };
 
       mediaRecorder.start(1000); // Collect data every second
       setRecording(true);
+      console.log(`[Recording] Recording started for question ${currentQuestionIndex + 1}`);
 
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           if (prev >= 60) {
-            // 1 minute limit
+            console.log(`[Recording] Time limit reached for question ${currentQuestionIndex + 1}`);
             handleNextQuestion();
             return 0;
           }
@@ -91,7 +96,7 @@ export default function VideoInterview() {
         });
       }, 1000);
     } catch (error) {
-      console.error("Error starting recording:", error);
+      console.error("[Error] Starting recording:", error);
       alert("Could not access camera/microphone. Please check permissions.");
     }
   };
@@ -99,6 +104,7 @@ export default function VideoInterview() {
   // Stop recording for current question
   const stopRecording = async () => {
     if (mediaRecorderRef.current && recording) {
+      console.log(`[Recording] Stopping recording for question ${currentQuestionIndex + 1}`);
       mediaRecorderRef.current.stop();
       setRecording(false);
 
@@ -107,45 +113,79 @@ export default function VideoInterview() {
         timerRef.current = null;
       }
 
-      // Create blob from recorded chunks
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      return new Promise<void>((resolve) => {
+        mediaRecorderRef.current!.onstop = () => {
+          // Create blob from recorded chunks
+          const blob = new Blob(chunksRef.current, { type: "video/webm" });
+          console.log(`[Recording] Created blob for question ${currentQuestionIndex + 1}`, blob);
 
-      // Save answer with question ID
-      const currentQuestion = dummyInterviewData.qa_pairs[currentQuestionIndex];
-      setSubmittedAnswers((prev) => [
-        ...prev,
-        {
-          question_id: currentQuestion.question_id,
-          submitted_answer: blob,
-        },
-      ]);
+          // Save answer with question ID
+          const currentQuestion = dummyInterviewData.qa_pairs[currentQuestionIndex];
+          setSubmittedAnswers((prev) => {
+            const newAnswers = [
+              ...prev,
+              {
+                question_id: currentQuestion.question_id,
+                submitted_answer: blob,
+              },
+            ];
+            console.log(`[State] Updated submittedAnswers with new answer for question ${currentQuestionIndex + 1}`, newAnswers);
+            return newAnswers;
+          });
 
-      // Stop camera/mic
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
+          // Stop camera/mic
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+          }
+
+          console.log(`[Recording] Recording stopped for question ${currentQuestionIndex + 1}`);
+          resolve();
+        };
+      });
     }
+    return Promise.resolve();
   };
 
   // Handle moving to next question or finishing
   const handleNextQuestion = async () => {
-    await stopRecording();
+    console.log("[Navigation] Handling next question/finish...");
+    setIsSubmitting(true);
+    
+    try {
+      await stopRecording();
+      console.log("[Navigation] Recording stopped successfully");
 
-    if (currentQuestionIndex < dummyInterviewData.qa_pairs.length - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-      await startRecording(); // Start recording for next question
-    } else {
-      // Interview completed, submit all answers
-      await submitInterview();
+      if (currentQuestionIndex < dummyInterviewData.qa_pairs.length - 1) {
+        console.log("[Navigation] Moving to next question");
+        setCurrentQuestionIndex((prev) => {
+          const newIndex = prev + 1;
+          console.log(`[State] Updated question index to ${newIndex}`);
+          return newIndex;
+        });
+        
+        // Wait for state to update before starting new recording
+        setTimeout(async () => {
+          await startRecording();
+          setIsSubmitting(false);
+        }, 0);
+      } else {
+        console.log("[Navigation] Interview completed, submitting...");
+        await submitInterview();
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      console.error("[Error] Handling next question:", error);
+      setIsSubmitting(false);
     }
   };
 
   // Submit all answers to the server
   const submitInterview = async () => {
-    try {
-      console.log(submittedAnswers);
+    console.log("[Submission] Starting submission process");
+    console.log("[Submission] Current submittedAnswers,,,,,,,,,,,,,,,,,,,:", submittedAnswers);
 
+    try {
       const formData = new FormData();
 
       // Add all video answers to form data
@@ -156,10 +196,17 @@ export default function VideoInterview() {
           answer.submitted_answer,
           `answer_${answer.question_id}.webm`
         );
+        console.log(`[Submission] Added answer ${index} to formData`);
       });
 
       // Add interview metadata
       formData.append("interview_id", dummyInterviewData._id);
+      console.log("[Submission] FormData prepared:", formData);
+
+      // For debugging, log what would be sent
+      for (const [key, value] of formData.entries()) {
+        console.log(`[Submission] FormData entry: ${key}`, value);
+      }
 
       // const response = await fetch('http://localhost:8000/interview/', {
       //   method: 'POST',
@@ -169,27 +216,31 @@ export default function VideoInterview() {
       // if (!response.ok) throw new Error('Upload failed');
 
       // const result = await response.json();
-      // console.log('Interview submitted successfully:', result);
-      // setUploadSuccess(true);
-
-
-      console.log(submittedAnswers);
-
-      
+      console.log('[Submission] Interview submitted successfully (simulated)');
     } catch (error) {
-      console.error("Submission error:", error);
+      console.error("[Error] Submission error:", error);
     }
   };
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      console.log("[Cleanup] Component unmounting, cleaning up...");
       if (timerRef.current) clearInterval(timerRef.current);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
+
+  // Log state changes
+  useEffect(() => {
+    console.log("[State] submittedAnswers updated:", submittedAnswers);
+  }, [submittedAnswers]);
+
+  useEffect(() => {
+    console.log("[State] currentQuestionIndex updated:", currentQuestionIndex);
+  }, [currentQuestionIndex]);
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -261,13 +312,15 @@ export default function VideoInterview() {
           <div className="flex justify-center">
             <button
               onClick={handleNextQuestion}
+              disabled={isSubmitting}
               className={`py-2 px-6 rounded-lg font-medium ${
                 currentQuestionIndex < dummyInterviewData.qa_pairs.length - 1
                   ? "bg-blue-600 hover:bg-blue-700 text-white"
                   : "bg-green-600 hover:bg-green-700 text-white"
-              } `}
+              } ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-              {currentQuestionIndex < dummyInterviewData.qa_pairs.length - 1
+              {isSubmitting ? "Processing..." : 
+                currentQuestionIndex < dummyInterviewData.qa_pairs.length - 1
                 ? "Next Question"
                 : "Finish Interview"}
             </button>
