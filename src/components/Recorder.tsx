@@ -104,7 +104,7 @@ export default function VideoInterview() {
   // Start recording for current question
   const startRecording = async () => {
     cleanupResources();
-    
+
     try {
       setRecordingTime(0);
       chunksRef.current = [];
@@ -153,7 +153,8 @@ export default function VideoInterview() {
     return new Promise((resolve) => {
       if (!mediaRecorderRef.current) {
         resolve({
-          question_id: dummyInterviewData.qa_pairs[currentQuestionIndex].question_id,
+          question_id:
+            dummyInterviewData.qa_pairs[currentQuestionIndex].question_id,
           submitted_answer: new Blob(),
         });
         return;
@@ -161,10 +162,11 @@ export default function VideoInterview() {
 
       const onStop = () => {
         mediaRecorderRef.current!.removeEventListener("stop", onStop);
-        
+
         const blob = new Blob(chunksRef.current, { type: "video/webm" });
         const answer = {
-          question_id: dummyInterviewData.qa_pairs[currentQuestionIndex].question_id,
+          question_id:
+            dummyInterviewData.qa_pairs[currentQuestionIndex].question_id,
           submitted_answer: blob,
         };
 
@@ -184,7 +186,7 @@ export default function VideoInterview() {
   // Handle moving to next question or finishing
   const handleNextQuestion = async () => {
     setInterviewStatus("processing");
-    
+
     try {
       await stopRecording();
 
@@ -209,15 +211,15 @@ export default function VideoInterview() {
 
       // Use the pendingAnswersRef to ensure we have all answers
       pendingAnswersRef.current.forEach((answer, index) => {
-        formData.append(`answers[${index}][question_id]`, answer.question_id);
+        // formData.append(`answers[${index}][question_id]`, answer.question_id);
         formData.append(
-          `answers[${index}][video]`,
+          "video",
           answer.submitted_answer,
-          `answer_${answer.question_id}.webm`
+          `answer_${index}.webm`
         );
       });
 
-      formData.append("interview_id", dummyInterviewData._id);
+      formData.append("session_id", dummyInterviewData._id);
 
       // Simulate API call
       console.log("Submitting interview data:", {
@@ -232,6 +234,18 @@ export default function VideoInterview() {
       // });
       // if (!response.ok) throw new Error('Upload failed');
       // return await response.json();
+
+      const response = await fetch("http://localhost:8000/api/response/", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer YOUR_ACCESS_TOKEN_HERE", // hardcoded access token
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload video");
+      }
     } catch (error) {
       console.error("Submission error:", error);
       throw error;
@@ -249,7 +263,8 @@ export default function VideoInterview() {
   };
 
   const currentQuestion = dummyInterviewData.qa_pairs[currentQuestionIndex];
-  const isLastQuestion = currentQuestionIndex === dummyInterviewData.qa_pairs.length - 1;
+  const isLastQuestion =
+    currentQuestionIndex === dummyInterviewData.qa_pairs.length - 1;
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -308,7 +323,8 @@ export default function VideoInterview() {
                   )}
                 </div>
                 <span className="text-sm text-gray-500">
-                  {currentQuestionIndex + 1} of {dummyInterviewData.qa_pairs.length}
+                  {currentQuestionIndex + 1} of{" "}
+                  {dummyInterviewData.qa_pairs.length}
                 </span>
               </div>
             </div>
